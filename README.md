@@ -100,6 +100,12 @@ wsup --filter node
 
 # Both together
 wsup --sort memory --filter 3000
+
+# Quick kill process on port (without TUI)
+wsup --kill 3000
+
+# Show help
+wsup --help
 ```
 
 ### Keyboard Shortcuts
