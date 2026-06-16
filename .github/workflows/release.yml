@@ -57,8 +57,6 @@ jobs:
           overwrite: true
           prerelease: true
           body: |
-            First pre-release of wsup.
+            v0.1.1 - Windows support
 
-            - Monitor localhost processes
-            - Real-time CPU/Memory graphs
-            - Sort and filter
+            Now works on Windows, macOS, and Linux.
