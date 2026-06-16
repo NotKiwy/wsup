@@ -355,15 +355,31 @@ fn renderDetailPanel(frame: &mut Frame, area: Rect, app: &App) {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
+                Constraint::Length(8),
                 Constraint::Length(12),
                 Constraint::Length(5),
                 Constraint::Length(5),
                 Constraint::Length(5),
-                Constraint::Min(0),
             ])
             .split(area);
 
         let cmd = proc.commandDisplay();
+
+        let ascii_art = vec![
+            Line::from(""),
+            Line::from(Span::styled("__      _____ _   _ _ __  ", Style::default().fg(Color::Cyan))),
+            Line::from(Span::styled("\\ \\ /\\ / / __| | | | '_ \\ ", Style::default().fg(Color::Cyan))),
+            Line::from(Span::styled(" \\ V  V /\\__ \\ |_| | |_) |", Style::default().fg(Color::Cyan))),
+            Line::from(Span::styled("  \\_/\\_/ |___/\\__,_| .__/ ", Style::default().fg(Color::Cyan))),
+            Line::from(Span::styled("                   | |    ", Style::default().fg(Color::Cyan))),
+            Line::from(Span::styled("                   |_|    ", Style::default().fg(Color::Cyan))),
+        ];
+
+        let ascii = Paragraph::new(ascii_art)
+            .block(Block::default())
+            .alignment(ratatui::layout::Alignment::Center);
+
+        frame.render_widget(ascii, chunks[0]);
 
         let info_text = vec![
             Line::from(""),
@@ -402,7 +418,7 @@ fn renderDetailPanel(frame: &mut Frame, area: Rect, app: &App) {
                     .border_style(Style::default().fg(Color::Cyan))
             );
 
-        frame.render_widget(info, chunks[0]);
+        frame.render_widget(info, chunks[1]);
 
         if let Some(history) = app.getHistory(proc.pid) {
             let cpu_data: Vec<u64> = history.cpu.iter().map(|&v| (v * 10.0) as u64).collect();
@@ -416,7 +432,7 @@ fn renderDetailPanel(frame: &mut Frame, area: Rect, app: &App) {
                 .data(&cpu_data)
                 .style(Style::default().fg(Color::Yellow));
 
-            frame.render_widget(cpu_sparkline, chunks[1]);
+            frame.render_widget(cpu_sparkline, chunks[2]);
 
             let mem_data: Vec<u64> = history.memory.iter().map(|&v| v / (1024 * 1024)).collect();
             let mem_sparkline = Sparkline::default()
@@ -429,7 +445,7 @@ fn renderDetailPanel(frame: &mut Frame, area: Rect, app: &App) {
                 .data(&mem_data)
                 .style(Style::default().fg(Color::Magenta));
 
-            frame.render_widget(mem_sparkline, chunks[2]);
+            frame.render_widget(mem_sparkline, chunks[3]);
 
             let conn_data: Vec<u64> = history.connections.iter().map(|&v| v as u64).collect();
             let conn_sparkline = Sparkline::default()
@@ -442,26 +458,8 @@ fn renderDetailPanel(frame: &mut Frame, area: Rect, app: &App) {
                 .data(&conn_data)
                 .style(Style::default().fg(Color::Blue));
 
-            frame.render_widget(conn_sparkline, chunks[3]);
+            frame.render_widget(conn_sparkline, chunks[4]);
         }
-
-        let help = Paragraph::new(vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("  Press ", Style::default().fg(Color::DarkGray)),
-                Span::styled("Esc", Style::default().fg(Color::Yellow)),
-                Span::styled(" to close  ", Style::default().fg(Color::DarkGray)),
-                Span::styled("x", Style::default().fg(Color::Red)),
-                Span::styled(" to kill", Style::default().fg(Color::DarkGray)),
-            ]),
-        ])
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray))
-        );
-
-        frame.render_widget(help, chunks[4]);
     }
 }
 
