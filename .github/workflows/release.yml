@@ -10,53 +10,98 @@ permissions:
 
 jobs:
   release:
-    name: Release ${{ matrix.target }}
+    name: Build & release (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
+
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: wsup
+            bin_name: wsup
             asset_name: wsup-linux-x86_64
+
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: wsup.exe
+            bin_name: wsup.exe
             asset_name: wsup-windows-x86_64.exe
+
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: wsup
+            bin_name: wsup
             asset_name: wsup-macos-x86_64
+
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: wsup
+            bin_name: wsup
             asset_name: wsup-macos-aarch64
 
     steps:
-      - uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      - name: Build
+      - name: Build release binary
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Strip binary (Linux and macOS)
+      - name: Strip binary (Linux & macOS only)
         if: matrix.os != 'windows-latest'
-        run: strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+        run: strip target/${{ matrix.target }}/release/${{ matrix.bin_name }}
 
-      - name: Upload binaries to release
+      - name: Read version from Cargo.toml
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $match = Select-String `
+            -Path Cargo.toml `
+            -Pattern '^version\s*=\s*"([^"]+)"' |
+            Select-Object -First 1
+          if (-not $match) {
+            Write-Error "Could not find version in Cargo.toml"
+            exit 1
+          }
+          $version = $match.Matches.Groups[1].Value
+          Write-Output "Detected version: $version"
+          # Persist for subsequent steps
+          "APP_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Compile Inno Setup installer (Windows only)
+        if: matrix.os == 'windows-latest'
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.4
+        with:
+          path: installer.iss
+          options: /DMyAppVersion=${{ env.APP_VERSION }}
+
+      - name: Upload binary to GitHub Release
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+          file: target/${{ matrix.target }}/release/${{ matrix.bin_name }}
           asset_name: ${{ matrix.asset_name }}
           tag: ${{ github.ref }}
           overwrite: true
-          prerelease: true
-          body: |
-            v0.1.1 - Windows support
 
-            Now works on Windows, macOS, and Linux.
+      - name: Verify installer was produced
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "Output/wsup-setup.exe")) {
+            Write-Error "Output/wsup-setup.exe was not found. Inno Setup may have failed silently."
+            exit 1
+          }
+          Write-Output "Installer found: $(Resolve-Path 'Output/wsup-setup.exe')"
+
+      - name: Upload Windows installer to GitHub Release
+        if: matrix.os == 'windows-latest'
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: Output/wsup-setup.exe
+          asset_name: wsup-windows-x86_64-setup.exe
+          tag: ${{ github.ref }}
+          overwrite: true
