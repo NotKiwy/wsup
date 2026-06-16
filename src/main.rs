@@ -116,7 +116,10 @@ fn main() -> Result<(), io::Error> {
 fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
-) -> io::Result<()> {
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    B::Error: std::error::Error + Send + Sync + 'static,
+{
     loop {
         let size = terminal.size()?;
         let visible_rows = size.height.saturating_sub(5) as usize;
