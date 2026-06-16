@@ -287,7 +287,7 @@ fn renderStatus(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn renderFooter(frame: &mut Frame, area: Rect, app: &App) {
-    let help = if app.search_mode {
+    let mut help = if app.search_mode {
         Line::from(vec![
             Span::styled("Type to search", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::raw("  "),
@@ -342,6 +342,14 @@ fn renderFooter(frame: &mut Frame, area: Rect, app: &App) {
             ]),
         }
     };
+
+    if let Some(ref version) = app.update_available {
+        help.spans.push(Span::raw("  "));
+        help.spans.push(Span::styled(
+            format!("Update available: v{}", version),
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        ));
+    }
 
     let paragraph = Paragraph::new(help)
         .style(Style::default().fg(Color::DarkGray))

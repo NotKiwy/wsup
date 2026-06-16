@@ -64,10 +64,13 @@ pub struct App {
     pub projects_selected: usize,
     pub process_history: HashMap<u32, ProcessHistory>,
     pub last_refresh: Instant,
+    pub update_available: Option<String>,
 }
 
 impl App {
     pub fn new() -> Self {
+        let update_available = checkForUpdates();
+
         Self {
             processes: Vec::new(),
             filtered_processes: Vec::new(),
@@ -84,6 +87,7 @@ impl App {
             projects_selected: 0,
             process_history: HashMap::new(),
             last_refresh: Instant::now(),
+            update_available,
         }
     }
 
@@ -357,6 +361,64 @@ impl App {
             total_memory,
             total_connections,
         }
+    }
+}
+
+fn checkForUpdates() -> Option<String> {
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    struct CrateResponse {
+        #[serde(rename = "crate")]
+        krate: CrateInfo,
+    }
+
+    #[derive(Deserialize)]
+    struct CrateInfo {
+        max_version: String,
+    }
+
+    const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
+    const TIMEOUT_SECS: u64 = 2;
+
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
+        .build()
+        .ok()?;
+
+    let response = client
+        .get("https://crates.io/api/v1/crates/wsup")
+        .header("User-Agent", format!("wsup/{}", CURRENT_VERSION))
+        .send()
+        .ok()?;
+
+    let crate_info: CrateResponse = response.json().ok()?;
+    let latest_version = crate_info.krate.max_version;
+
+    if isNewer(&latest_version, CURRENT_VERSION) {
+        Some(latest_version)
+    } else {
+        None
+    }
+}
+
+fn isNewer(remote: &str, current: &str) -> bool {
+    let parse_version = |v: &str| -> Option<(u32, u32, u32)> {
+        let parts: Vec<&str> = v.split('.').collect();
+        if parts.len() != 3 {
+            return None;
+        }
+        Some((
+            parts[0].parse().ok()?,
+            parts[1].parse().ok()?,
+            parts[2].parse().ok()?,
+        ))
+    };
+
+    if let (Some(remote_ver), Some(current_ver)) = (parse_version(remote), parse_version(current)) {
+        remote_ver > current_ver
+    } else {
+        false
     }
 }
 

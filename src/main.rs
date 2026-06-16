@@ -18,18 +18,60 @@ use ui::{App, renderUi, ViewMode, SortMode};
 #[derive(Parser, Debug)]
 #[command(name = "wsup")]
 #[command(about = "TUI localhost process manager")]
-#[command(long_about = "Monitor and manage processes running on localhost ports")]
 #[command(version)]
+#[command(disable_help_flag = true)]
+#[command(disable_colored_help = true)]
 struct Args {
-    #[arg(short, long, value_name = "MODE")]
+    #[arg(short, long, value_name = "MODE", help = "Sort by: port, cpu, memory, connections, name")]
     sort: Option<String>,
 
-    #[arg(short, long, value_name = "QUERY", alias = "search")]
+    #[arg(short, long, value_name = "QUERY", alias = "search", help = "Filter processes by name, port, or command")]
     filter: Option<String>,
+
+    #[arg(short = 'k', long, value_name = "PORT", help = "Kill process on specified port")]
+    kill: Option<u16>,
+
+    #[arg(short, long, action = clap::ArgAction::HelpShort, help = "Print help")]
+    help: Option<bool>,
 }
 
 fn main() -> Result<(), io::Error> {
     let args = Args::parse();
+
+    if let Some(port) = args.kill {
+        use crate::core::{getLocalhostProcesses, killProcess};
+        use crossterm::style::{Color, Stylize};
+
+        let processes = getLocalhostProcesses();
+        let target = processes.iter().find(|p| p.port == port);
+
+        match target {
+            Some(proc) => {
+                println!("Killing process {} {} on port {}",
+                    proc.name.clone().with(Color::Green),
+                    format!("(PID: {})", proc.pid).with(Color::DarkGrey),
+                    format!(":{}", port).with(Color::Cyan)
+                );
+                match killProcess(proc.pid) {
+                    Ok(_) => {
+                        println!("{}", "✓ Process killed successfully".with(Color::Green));
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        eprintln!("{} {}", "✗ Failed to kill process:".with(Color::Red), e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+            None => {
+                eprintln!("{} {}",
+                    "✗ No process found on port".with(Color::Red),
+                    format!(":{}", port).with(Color::Cyan)
+                );
+                std::process::exit(1);
+            }
+        }
+    }
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
