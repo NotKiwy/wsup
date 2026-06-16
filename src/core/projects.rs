@@ -4,6 +4,16 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 
+#[cfg(unix)]
+fn getShell() -> (&'static str, &'static str) {
+    ("sh", "-c")
+}
+
+#[cfg(windows)]
+fn getShell() -> (&'static str, &'static str) {
+    ("cmd", "/C")
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: String,
@@ -95,8 +105,9 @@ impl ProjectManager {
             .ok_or("Project not found")?;
 
         if let Some(build_cmd) = &project.build_command {
-            let build_result = Command::new("sh")
-                .arg("-c")
+            let (shell, flag) = getShell();
+            let build_result = Command::new(shell)
+                .arg(flag)
                 .arg(build_cmd)
                 .current_dir(&project.path)
                 .status()
@@ -107,8 +118,9 @@ impl ProjectManager {
             }
         }
 
-        let child = Command::new("sh")
-            .arg("-c")
+        let (shell, flag) = getShell();
+        let child = Command::new(shell)
+            .arg(flag)
             .arg(&project.run_command)
             .current_dir(&project.path)
             .envs(&project.env_vars)
@@ -139,8 +151,9 @@ impl ProjectManager {
 
         if let Some(deploy_cmd) = &project.deploy_command {
             if let Some(build_cmd) = &project.build_command {
-                let build_result = Command::new("sh")
-                    .arg("-c")
+                let (shell, flag) = getShell();
+                let build_result = Command::new(shell)
+                    .arg(flag)
                     .arg(build_cmd)
                     .current_dir(&project.path)
                     .status()
@@ -151,8 +164,9 @@ impl ProjectManager {
                 }
             }
 
-            let deploy_result = Command::new("sh")
-                .arg("-c")
+            let (shell, flag) = getShell();
+            let deploy_result = Command::new(shell)
+                .arg(flag)
                 .arg(deploy_cmd)
                 .current_dir(&project.path)
                 .envs(&project.env_vars)
