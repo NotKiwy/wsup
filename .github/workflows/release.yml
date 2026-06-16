@@ -85,6 +85,12 @@ jobs:
           asset_name: ${{ matrix.asset_name }}
           tag: ${{ github.ref }}
           overwrite: true
+          prerelease: true
+          body: |
+            v0.1.2 - Windows installer and UI improvements
+
+            - Windows installer with automatic PATH setup
+            - ASCII art logo in detail view
 
       - name: Verify installer was produced
         if: matrix.os == 'windows-latest'
