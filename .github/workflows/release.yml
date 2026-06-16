@@ -51,3 +51,11 @@ jobs:
           file: target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
           asset_name: ${{ matrix.asset_name }}
           tag: ${{ github.ref }}
+          overwrite: true
+          prerelease: true
+          body: |
+            First pre-release of wsup.
+
+            - Monitor localhost processes
+            - Real-time CPU/Memory graphs
+            - Sort and filter
