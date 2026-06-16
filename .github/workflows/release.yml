@@ -87,11 +87,14 @@ jobs:
           overwrite: true
           prerelease: true
           body: |
-            v0.1.3 - Quick kill and update notifications
+            v0.1.4 - Dependencies update
 
-            - Added --kill <PORT> flag for quick process termination without TUI
-            - Update notification system checks crates.io on startup
-            - Improved --help formatting and descriptions
+            - Updated all dependencies to latest stable versions
+            - ratatui 0.29 → 0.30
+            - sysinfo 0.32 → 0.39
+            - crossterm 0.28 → 0.29
+            - reqwest 0.12 → 0.13
+            - dirs 5 → 6
 
       - name: Verify installer was produced
         if: matrix.os == 'windows-latest'
