@@ -87,9 +87,13 @@ jobs:
           overwrite: true
           prerelease: true
           body: |
-            v0.1.5 - Rust Edition 2024
+            v0.1.6 - New --port flag and protected processes
 
-            - Updated to Rust Edition 2024
+            - Added --port <PORT> flag for non-interactive port lookup
+            - Protected processes list for Windows/macOS/Linux (prevents accidental system crashes)
+            - Docker process warnings with --force bypass
+            - Executable path tracking in process info
+            - Contributed by @Gam5510
 
       - name: Verify installer was produced
         if: matrix.os == 'windows-latest'
