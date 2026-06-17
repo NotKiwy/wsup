@@ -87,14 +87,9 @@ jobs:
           overwrite: true
           prerelease: true
           body: |
-            v0.1.4 - Dependencies update
+            v0.1.5 - Rust Edition 2024
 
-            - Updated all dependencies to latest stable versions
-            - ratatui 0.29 → 0.30
-            - sysinfo 0.32 → 0.39
-            - crossterm 0.28 → 0.29
-            - reqwest 0.12 → 0.13
-            - dirs 5 → 6
+            - Updated to Rust Edition 2024
 
       - name: Verify installer was produced
         if: matrix.os == 'windows-latest'
