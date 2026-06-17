@@ -65,6 +65,7 @@ pub struct App {
     pub process_history: HashMap<u32, ProcessHistory>,
     pub last_refresh: Instant,
     pub update_available: Option<String>,
+    pub force_kill: bool,
 }
 
 impl App {
@@ -88,6 +89,7 @@ impl App {
             process_history: HashMap::new(),
             last_refresh: Instant::now(),
             update_available,
+            force_kill: false,
         }
     }
 
@@ -96,6 +98,10 @@ impl App {
     }
 
     pub fn refreshProcesses(&mut self) {
+        let anchor: Option<(u16, u32)> = self.filtered_processes
+            .get(self.selected)
+            .map(|p| (p.port, p.pid));
+
         self.processes = crate::core::getLocalhostProcesses();
 
         for proc in &self.processes {
@@ -105,6 +111,16 @@ impl App {
 
         self.applySort();
         self.applyFilter();
+
+        if let Some((port, pid)) = anchor {
+            if let Some(new_idx) = self.filtered_processes
+                .iter()
+                .position(|p| p.port == port && p.pid == pid)
+            {
+                self.selected = new_idx;
+            }
+        }
+
         if self.selected >= self.filtered_processes.len() && !self.filtered_processes.is_empty() {
             self.selected = self.filtered_processes.len() - 1;
         }
@@ -302,6 +318,36 @@ impl App {
         self.should_quit = true;
     }
 
+    pub fn toggleForceKill(&mut self) {
+        self.force_kill = !self.force_kill;
+        if self.force_kill {
+            self.status_message = Some("⚠ Force mode ON — Docker processes can now be killed.".to_string());
+        } else {
+            self.status_message = Some("Force mode OFF.".to_string());
+        }
+    }
+
+    pub fn isSelectedDocker(&self) -> bool {
+        self.filtered_processes
+            .get(self.selected)
+            .map(|p| p.isDockerProcess())
+            .unwrap_or(false)
+    }
+
+    pub fn isSelectedProtected(&self) -> bool {
+        self.filtered_processes
+            .get(self.selected)
+            .map(|p| p.isProtectedProcess())
+            .unwrap_or(false)
+    }
+
+    pub fn isSelectedNeedsForce(&self) -> bool {
+        self.filtered_processes
+            .get(self.selected)
+            .map(|p| (p.isProtectedProcess() || p.isDockerProcess()) && !self.force_kill)
+            .unwrap_or(false)
+    }
+
     pub fn showDetail(&mut self) {
         self.view_mode = ViewMode::Detail;
     }
@@ -312,11 +358,28 @@ impl App {
 
     pub fn backToList(&mut self) {
         self.view_mode = ViewMode::List;
+        self.force_kill = false;
         self.clearStatus();
     }
 
     pub fn killSelected(&mut self) {
-        if let Some(proc) = self.processes.get(self.selected) {
+        if let Some(proc) = self.filtered_processes.get(self.selected) {
+            if proc.isProtectedProcess() && !self.force_kill {
+                self.status_message = Some(format!(
+                    "⚠ '{}' is a protected system process. Press F to force kill.",
+                    proc.name
+                ));
+                self.view_mode = ViewMode::List;
+                return;
+            }
+            if proc.isDockerProcess() && !self.force_kill {
+                self.status_message = Some(format!(
+                    "⚠ '{}' is a Docker process. Press F to force kill.",
+                    proc.name
+                ));
+                self.view_mode = ViewMode::List;
+                return;
+            }
             let pid = proc.pid;
             match crate::core::killProcess(pid) {
                 Ok(_) => {

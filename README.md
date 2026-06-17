@@ -59,6 +59,9 @@ wsup
 
 # Run with options
 wsup --sort cpu --filter node
+
+# Quick look at what's on a port (no TUI)
+wsup --port 3000
 ```
 
 ## Features
@@ -68,6 +71,7 @@ wsup --sort cpu --filter node
 - Filter processes as you type
 - Color-coded ports (HTTP, databases, dev servers)
 - Kill processes with confirmation
+- One-shot `--port` lookup for scripting (no TUI, just the facts)
 - Vim keybindings (j/k) support
 - Auto-refresh every 2 seconds
 
@@ -104,9 +108,53 @@ wsup --sort memory --filter 3000
 # Quick kill process on port (without TUI)
 wsup --kill 3000
 
+# Quick info on what's listening on a port (without TUI)
+wsup --port 3000
+
 # Show help
 wsup --help
 ```
+
+### CLI Flag: --port
+
+`wsup --port <PORT>` is a one-shot, non-interactive mode: it looks up whatever
+process is listening on the given port, prints a compact summary, and exits
+immediately. It never opens the TUI, so it's safe to use in scripts or
+one-off terminal checks.
+
+```bash
+$ wsup --port 27017
+
+       __      _____ _   _ _ __
+       \ \ /\ / / __| | | | '_ \
+        \ V  V /\__ \ |_| | |_) |
+         \_/\_/ |___/\__,_| .__/
+                          | |
+                          |_|
+
+┌─ Process Info ─────────────────────────────────────────────────┐
+│                                                                │
+│ mongod.exe                                                     │
+│                                                                │
+│ Port: :27017   PID: 5504   Protocol: TCP                       │
+│                                                                │
+│ CPU: 0.0%   Mem: 23M   Conn: 0                                 │
+│                                                                │
+│ Executable: C:\Program Files\MongoDB\Server\8.0\bin\mongod.exe │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+If nothing is listening on the port:
+
+```bash
+$ wsup --port 9999
+Port 9999 is not in use.
+```
+
+If the process details can't be read (e.g. insufficient permissions), wsup
+prints a clear error to stderr and exits with a non-zero status instead of
+panicking.
 
 ### Keyboard Shortcuts
 
@@ -149,11 +197,24 @@ wsup --help
 
 ### Detail View
 When you press `Enter` on a process, you get:
-- **Process Info** - Name, port, PID, current stats
+- **Process Info** - Name, port, PID, protocol, current stats, executable path
 - **CPU History Graph** - Sparkline showing last 60 data points
 - **Memory History Graph** - Visual memory usage trend
 - **Connections Graph** - Active connections over time
 - **Command Display** - Full command with all arguments
+
+### `--port` Summary (no TUI)
+`wsup --port <PORT>` prints the same core facts as the Detail View, without
+starting the interactive interface:
+- **Process Name**
+- **PID**
+- **Port** and **Protocol** (TCP/UDP)
+- **CPU Usage** and **Memory Usage**
+- **Active Connections**
+- **Executable Path** (when available)
+
+It reuses the exact same process-lookup and formatting code as the TUI, so
+the numbers always match.
 
 ### Port Color Coding
 - **Cyan** - HTTP/HTTPS (80, 443, 8080, 8443)

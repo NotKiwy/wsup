@@ -1,3 +1,4 @@
+mod cli;
 mod core;
 mod ui;
 mod utils;
@@ -31,6 +32,12 @@ struct Args {
     #[arg(short = 'k', long, value_name = "PORT", help = "Kill process on specified port")]
     kill: Option<u16>,
 
+    #[arg(long, help = "Skip the protected-process check when using --kill")]
+    force: bool,
+
+    #[arg(short = 'p', long, value_name = "PORT", help = "Show a compact info summary for the process on the specified port, then exit (no TUI)")]
+    port: Option<u16>,
+
     #[arg(short, long, action = clap::ArgAction::HelpShort, help = "Print help")]
     help: Option<bool>,
 }
@@ -39,38 +46,13 @@ fn main() -> Result<(), io::Error> {
     let args = Args::parse();
 
     if let Some(port) = args.kill {
-        use crate::core::{getLocalhostProcesses, killProcess};
-        use crossterm::style::{Color, Stylize};
+        cli::killPortInteractive(port, args.force);
+        return Ok(());
+    }
 
-        let processes = getLocalhostProcesses();
-        let target = processes.iter().find(|p| p.port == port);
-
-        match target {
-            Some(proc) => {
-                println!("Killing process {} {} on port {}",
-                    proc.name.clone().with(Color::Green),
-                    format!("(PID: {})", proc.pid).with(Color::DarkGrey),
-                    format!(":{}", port).with(Color::Cyan)
-                );
-                match killProcess(proc.pid) {
-                    Ok(_) => {
-                        println!("{}", "✓ Process killed successfully".with(Color::Green));
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        eprintln!("{} {}", "✗ Failed to kill process:".with(Color::Red), e);
-                        std::process::exit(1);
-                    }
-                }
-            }
-            None => {
-                eprintln!("{} {}",
-                    "✗ No process found on port".with(Color::Red),
-                    format!(":{}", port).with(Color::Cyan)
-                );
-                std::process::exit(1);
-            }
-        }
+    if let Some(port) = args.port {
+        cli::printPortInfo(port);
+        return Ok(());
     }
 
     enable_raw_mode()?;
@@ -122,7 +104,7 @@ where
 {
     loop {
         let size = terminal.size()?;
-        let visible_rows = size.height.saturating_sub(5) as usize;
+        let visible_rows = size.height.saturating_sub(6) as usize;
 
         if app.shouldAutoRefresh() {
             app.refreshProcesses();
@@ -208,8 +190,17 @@ where
                             ViewMode::Detail => {
                                 match key.code {
                                     KeyCode::Esc => app.backToList(),
+                                    KeyCode::Char('q') => app.quit(),
                                     KeyCode::Char('x') => {
                                         app.showConfirmKill();
+                                    }
+                                    KeyCode::Down | KeyCode::Char('j') => {
+                                        app.next();
+                                        app.adjustScroll(visible_rows);
+                                    }
+                                    KeyCode::Up | KeyCode::Char('k') => {
+                                        app.previous();
+                                        app.adjustScroll(visible_rows);
                                     }
                                     _ => {}
                                 }
@@ -218,6 +209,9 @@ where
                                 match key.code {
                                     KeyCode::Char('y') | KeyCode::Char('Y') => {
                                         app.killSelected();
+                                    }
+                                    KeyCode::Char('f') | KeyCode::Char('F') => {
+                                        app.toggleForceKill();
                                     }
                                     KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
                                         app.backToList();
