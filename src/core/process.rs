@@ -15,7 +15,6 @@ pub struct ProcessInfo {
     pub exe_path: Option<String>,
 }
 
-
 #[derive(Debug, Clone)]
 pub enum PortQueryError {
     NotFound,
@@ -38,6 +37,12 @@ impl ProcessInfo {
         } else {
             self.cmd.join(" ")
         }
+    }
+
+    pub fn isProtectedProcess(&self) -> bool {
+        crate::cli::PROTECTED_PROCESSES
+            .iter()
+            .any(|&p| p.eq_ignore_ascii_case(&self.name))
     }
 
     pub fn isDockerProcess(&self) -> bool {
@@ -92,6 +97,7 @@ pub fn getLocalhostProcesses() -> Vec<ProcessInfo> {
     processes.sort_by_key(|p| p.port);
     processes
 }
+
 pub fn findProcessByPort(port: u16) -> Result<ProcessInfo, PortQueryError> {
     let port_map = getPortMappings().map_err(PortQueryError::PermissionDenied)?;
 

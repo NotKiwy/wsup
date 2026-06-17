@@ -98,7 +98,6 @@ impl App {
     }
 
     pub fn refreshProcesses(&mut self) {
-
         let anchor: Option<(u16, u32)> = self.filtered_processes
             .get(self.selected)
             .map(|p| (p.port, p.pid));
@@ -335,6 +334,20 @@ impl App {
             .unwrap_or(false)
     }
 
+    pub fn isSelectedProtected(&self) -> bool {
+        self.filtered_processes
+            .get(self.selected)
+            .map(|p| p.isProtectedProcess())
+            .unwrap_or(false)
+    }
+
+    pub fn isSelectedNeedsForce(&self) -> bool {
+        self.filtered_processes
+            .get(self.selected)
+            .map(|p| (p.isProtectedProcess() || p.isDockerProcess()) && !self.force_kill)
+            .unwrap_or(false)
+    }
+
     pub fn showDetail(&mut self) {
         self.view_mode = ViewMode::Detail;
     }
@@ -351,6 +364,14 @@ impl App {
 
     pub fn killSelected(&mut self) {
         if let Some(proc) = self.filtered_processes.get(self.selected) {
+            if proc.isProtectedProcess() && !self.force_kill {
+                self.status_message = Some(format!(
+                    "⚠ '{}' is a protected system process. Press F to force kill.",
+                    proc.name
+                ));
+                self.view_mode = ViewMode::List;
+                return;
+            }
             if proc.isDockerProcess() && !self.force_kill {
                 self.status_message = Some(format!(
                     "⚠ '{}' is a Docker process. Press F to force kill.",

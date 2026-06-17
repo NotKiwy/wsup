@@ -174,7 +174,7 @@ fn renderTable(frame: &mut Frame, area: Rect, app: &App) {
     let total_width = area.width as usize;
     let fixed_cols: usize = 9 + 7 + 6 + 7 + 6;
     let borders: usize = 2;
-    let col_gaps: usize = 6; 
+    let col_gaps: usize = 6;
     let overhead = fixed_cols + borders + col_gaps;
 
     let remaining = total_width.saturating_sub(overhead);
@@ -331,7 +331,7 @@ fn renderFooter(frame: &mut Frame, area: Rect, app: &App) {
                 Span::raw(" quit"),
             ]),
             ViewMode::ConfirmKill => {
-                if app.isSelectedDocker() && !app.force_kill {
+                if app.isSelectedNeedsForce() {
                     Line::from(vec![
                         Span::styled("f", Style::default().fg(Color::Yellow)),
                         Span::raw(" enable force  "),
@@ -415,7 +415,6 @@ fn renderDetailPanel(frame: &mut Frame, area: Rect, app: &App) {
         if actual_info_h > 0 {
             constraints.push(Constraint::Length(actual_info_h as u16));
         }
-
         let used = actual_logo_h + actual_info_h;
         let leftover = total_h.saturating_sub(used);
         if leftover >= sparklines_total {
@@ -563,9 +562,11 @@ fn renderDetailPanel(frame: &mut Frame, area: Rect, app: &App) {
 
 fn renderConfirmDialog(frame: &mut Frame, app: &App) {
     if let Some(proc) = app.getSelectedProcess() {
-        let is_docker = proc.isDockerProcess();
-        let area = centeredRect(50, 35, frame.area());
+        let is_protected = proc.isProtectedProcess();
+        let is_docker = !is_protected && proc.isDockerProcess();
+        let needs_force = (is_protected || is_docker) && !app.force_kill;
 
+        let area = centeredRect(50, 35, frame.area());
         frame.render_widget(Clear, area);
 
         let mut text = vec![
@@ -584,13 +585,30 @@ fn renderConfirmDialog(frame: &mut Frame, app: &App) {
             ]),
         ];
 
-        if is_docker {
+        if is_protected {
+            text.push(Line::from(""));
+            text.push(Line::from(Span::styled(
+                "⚠ Protected system process",
+                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+            )));
+            if needs_force {
+                text.push(Line::from(Span::styled(
+                    "Press F to enable force mode first.",
+                    Style::default().fg(Color::DarkGray),
+                )));
+            } else {
+                text.push(Line::from(Span::styled(
+                    "Force mode active — killing may destabilize the system!",
+                    Style::default().fg(Color::Red),
+                )));
+            }
+        } else if is_docker {
             text.push(Line::from(""));
             text.push(Line::from(Span::styled(
                 "⚠ Docker process detected",
                 Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
             )));
-            if !app.force_kill {
+            if needs_force {
                 text.push(Line::from(Span::styled(
                     "Press F to enable force mode first.",
                     Style::default().fg(Color::DarkGray),
@@ -606,7 +624,7 @@ fn renderConfirmDialog(frame: &mut Frame, app: &App) {
         text.push(Line::from(""));
         text.push(Line::from(""));
 
-        if is_docker && !app.force_kill {
+        if needs_force {
             text.push(Line::from(vec![
                 Span::styled("[F]", Style::default().fg(Color::Black).bg(Color::Yellow).add_modifier(Modifier::BOLD)),
                 Span::styled(" Force mode  ", Style::default().fg(Color::Yellow)),
@@ -622,11 +640,7 @@ fn renderConfirmDialog(frame: &mut Frame, app: &App) {
             ]));
         }
 
-        let border_color = if is_docker && !app.force_kill {
-            Color::Yellow
-        } else {
-            Color::Red
-        };
+        let border_color = if needs_force { Color::Yellow } else { Color::Red };
 
         let paragraph = Paragraph::new(text)
             .block(

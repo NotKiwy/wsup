@@ -2,13 +2,54 @@ use crate::core::{findProcessByPort, killProcess, PortQueryError, ProcessInfo};
 use crate::utils::{formatMemory, LOGO_LINES};
 use crossterm::style::{Color, Stylize};
 
-const PROTECTED_PROCESSES: &[&str] = &[
+pub const PROTECTED_PROCESSES: &[&str] = &[
+    //  Windows 
     "System",
     "Registry",
     "csrss.exe",
     "wininit.exe",
+    "smss.exe",
     "services.exe",
-    "lsass.exe"
+    "lsass.exe",
+    "winlogon.exe",
+    "ntoskrnl.exe",
+    "svchost.exe",
+    "dwm.exe",
+    "com.docker.backend.exe",
+    "com.docker.build.exe",
+    //  macOS 
+    "launchd",
+    "kernel_task",
+    "mds",
+    "mds_stores",
+    "WindowServer",
+    "loginwindow",
+    "cfprefsd",
+    "diskarbitrationd",
+    "configd",
+    "opendirectoryd",
+    "syslogd",
+    "notifyd",
+    "com.apple.dock",
+    "com.docker.backend",
+    "com.docker.build",
+    // Linux 
+    "systemd",
+    "init",
+    "kthreadd",
+    "kworker",
+    "ksoftirqd",
+    "migration",
+    "rcu_sched",
+    "watchdog",
+    "dbus-daemon",
+    "udevd",
+    "systemd-udevd",
+    "systemd-journald",
+    "systemd-logind",
+    "sshd",
+    "dockerd",
+    "containerd",
 ];
 
 pub fn killPortInteractive(port: u16, force: bool) {
@@ -64,10 +105,32 @@ pub fn killPortInteractive(port: u16, force: bool) {
         .iter()
         .any(|&name| name.eq_ignore_ascii_case(&proc.name));
 
+    let is_docker = {
+        let name_lower = proc.name.to_lowercase();
+        let exe_lower = proc.exe_path.as_deref().unwrap_or("").to_lowercase();
+        name_lower.contains("docker") || exe_lower.contains("docker")
+    };
+
     if is_protected && !force {
         eprintln!(
             "{}  {} {}",
             "⚠ Protected process:".with(Color::Yellow).bold(),
+            proc.name.clone().with(Color::Red).bold(),
+            "cannot be killed without --force".with(Color::DarkGrey),
+        );
+        eprintln!(
+            "  {} {}",
+            "Run with".with(Color::DarkGrey),
+            "--force".with(Color::Yellow),
+        );
+        println!();
+        std::process::exit(1);
+    }
+
+    if is_docker && !force {
+        eprintln!(
+            "{}  {} {}",
+            "⚠ Docker process:".with(Color::Yellow).bold(),
             proc.name.clone().with(Color::Red).bold(),
             "cannot be killed without --force".with(Color::DarkGrey),
         );
